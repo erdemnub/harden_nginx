@@ -1,28 +1,24 @@
-# Nginx Host Hardening & Kernel-Level Baseline
+## Why This Architecture? (Defense-in-Depth)
 
-An automated security baseline script for Fedora/RHEL-based enterprise Linux environments. This project enforces the Principle of Least Privilege and Defense-in-Depth for Nginx web server instances using SELinux, Systemd sandboxing, stateful firewall rules, and Auditd File Integrity Monitoring (FIM).
+I built this baseline to lock down Nginx using layered host security instead of relying on default configurations. Here is the technical breakdown:
 
----
+### 1. Mandatory Access Control (SELinux)
+* **Custom Port Labeling:** Nginx is moved to port `8088`. SELinux enforces strict type enforcement via `semanage port -a -t http_port_t -p tcp 8088`.
+* **Impact:** Even if the web process is compromised, it cannot bind to unauthorized network sockets.
 
-## Security Architecture & Threat Model
+### 2. Systemd Sandboxing (Drop-in Override)
+Instead of letting Nginx run with broad system access, the process is isolated directly at the systemd level:
+* `ProtectSystem=strict`: Mounts the whole root filesystem (`/`) as read-only. I chose `strict` over `full` to explicitly lock `/var` as well.
+* `ReadWritePaths`: Nginx can only write to strictly required directories (`/var/log/nginx`, `/var/run`, `/var/lib/nginx`). An attacker cannot drop web shells into `/tmp` or edit `/etc`.
+* `ProtectHome=true`: Completely hides `/home` and `/root` from the Nginx process table.
+* `NoNewPrivileges=true`: Blocks privilege escalation via SUID/SGID binaries.
 
-1. **Mandatory Access Control (SELinux):**
-   - Updates socket binding policy (`http_port_t`) to port `8088/tcp` using `semanage`.
-   - Prevents unauthorized network namespace binding.
+### 3. File Integrity Monitoring (Auditd)
+* **Kernel Syscall Rule:** Added `auditctl -a always,exit -F path=/etc/nginx/nginx.conf -F perm=wa -k nginx_config_change`.
+* **Impact:** Tracks any write/attribute changes on the main configuration file at the kernel level and records the real login UID (`auid`), preventing tampering even if an attacker gets `sudo`.
 
-2. **Systemd Process Sandboxing (Namespace & Cgroups):**
-   - `ProtectSystem=strict`: Mounts the entire root filesystem (`/`) as read-only, preventing attackers from writing web shells or malicious binaries into `/usr`, `/boot`, `/etc`, or unwhitelisted `/var` directories.
-   - `ProtectHome=true`: Completely hides and isolates `/home`, `/root`, and `/run/user` from the Nginx process.
-   - `NoNewPrivileges=true`: Disallows child processes from gaining elevated execution privileges via SUID/SGID binaries.
-   - `ReadWritePaths`: Whitelists strictly necessary runtime paths (`/var/log/nginx`, `/var/run`, `/var/lib/nginx`).
-
-3. **File Integrity Monitoring (Auditd / Linux Kernel):**
-   - Enforces syscall monitoring on `/etc/nginx/nginx.conf` (`perm=wa`).
-   - Identifies malicious configuration tampering at the kernel level and tracks the true originating session identity (`auid`), neutralizing privilege escalation masking via `sudo`.
-
-4. **Network Exposure Control (Firewalld):**
-   - Closes default HTTP port 80 and restricts exposure strictly to the hardened service port (`8088/tcp`).
-
+### 4. Network Perimeter (Firewalld)
+* Closes standard HTTP port 80 and opens only `8088/tcp` to minimize exposure.
 ---
 
 ## Usage
