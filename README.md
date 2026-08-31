@@ -1,4 +1,4 @@
-# Nginx Host Hardening & Kernel-Level FIM Baseline
+# Nginx Host Hardening & Kernel-Level Baseline
 
 An automated security baseline script for Fedora/RHEL-based enterprise Linux environments. This project enforces the Principle of Least Privilege and Defense-in-Depth for Nginx web server instances using SELinux, Systemd sandboxing, stateful firewall rules, and Auditd File Integrity Monitoring (FIM).
 
