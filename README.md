@@ -33,7 +33,8 @@ An automated security baseline script for Fedora/RHEL-based enterprise Linux env
 
 ### Quick Start
 ```bash
-git clone https://github.com/erdemnub/harden_nginx.git
+git clone https://github.com/erdemnub/harden_nginx.git nginx-hardening-baseline
 cd nginx-hardening-baseline
 chmod +x harden_nginx.sh
 sudo ./harden_nginx.sh
+```
